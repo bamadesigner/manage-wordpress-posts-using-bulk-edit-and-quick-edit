@@ -13,10 +13,11 @@
  * so I could easily monitor it on my development environment
  * and store it on GitHub.
  *
- * With that, you could easily take this code and paste it into
- * your theme's function.php file. Just check the
+ * With that said, you could easily take this code and paste it
+ * into your theme's functions.php file. There is, however,
+ * an included javascript file so be sure to check the
  * manage_wp_posts_using_bulk_quick_edit_enqueue_admin_scripts()
- * function to make sure you're enqueuing the right file.
+ * function to confirm you're enqueueing the right javascript file.
  *
  * Also, after a few requests for custom field examples other than
  * text boxes, I updated the tutorial to include a select dropdown
@@ -27,7 +28,7 @@
  * 'Coming Soon' - input radio
  * 'Film Rating' - select dropdown
  *
- * If you find any issues with the tutorial, please let me know. Thanks!
+ * If you find any issues with the tutorial, or code, please let me know. Thanks!
  */
 
 /**
