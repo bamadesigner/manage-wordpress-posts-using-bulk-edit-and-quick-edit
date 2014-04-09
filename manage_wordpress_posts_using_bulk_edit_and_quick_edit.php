@@ -3,7 +3,6 @@
 /**
  * Plugin Name: Manage WordPress Posts Using Bulk Edit and Quick Edit
  * Description: This is the code for a tutorial WP Dreamer wrote about managing WordPress posts using bulk and quick edit.
- * Version: 1.0
  * Author: WP Dreamer
  * Author URI: http://wpdreamer.com/2012/03/manage-wordpress-posts-using-bulk-edit-and-quick-edit/
  */
@@ -16,7 +15,7 @@
  * With that said, you could easily take this code and paste it
  * into your theme's functions.php file. There is, however,
  * an included javascript file so be sure to check the
- * manage_wp_posts_using_bulk_quick_edit_enqueue_admin_scripts()
+ * manage_wp_posts_be_qe_enqueue_admin_scripts()
  * function to confirm you're enqueueing the right javascript file.
  *
  * Also, after a few requests for custom field examples other than
@@ -51,8 +50,8 @@
  * following the priority argument.
  *
  */
-add_filter( 'manage_posts_columns', 'manage_wp_posts_using_bulk_quick_edit_manage_posts_columns', 10, 2 );
-function manage_wp_posts_using_bulk_quick_edit_manage_posts_columns( $columns, $post_type ) {
+add_filter( 'manage_posts_columns', 'manage_wp_posts_be_qe_manage_posts_columns', 10, 2 );
+function manage_wp_posts_be_qe_manage_posts_columns( $columns, $post_type ) {
 
 	/**
 	 * The first example adds our new columns at the end.
@@ -89,9 +88,9 @@ function manage_wp_posts_using_bulk_quick_edit_manage_posts_columns( $columns, $
 				 * follow immediately with our custom columns.
 				 */
 				if ( $key == 'title' ) {
-					$new_columns[ 'release_date' ] = 'Release Date';
-					$new_columns[ 'coming_soon' ] = 'Coming Soon';
-					$new_columns[ 'film_rating' ] = 'Film Rating';
+					$new_columns[ 'release_date_column' ] = 'Release Date';
+					$new_columns[ 'coming_soon_column' ] = 'Coming Soon';
+					$new_columns[ 'film_rating_column' ] = 'Film Rating';
 				}
 					
 			}
@@ -101,6 +100,49 @@ function manage_wp_posts_using_bulk_quick_edit_manage_posts_columns( $columns, $
 	}
 	
 	return $columns;
+	
+}
+
+/**
+ * The following filter allows you to make your column(s) sortable.
+ *
+ * The 'edit-movies' section of the filter name is the custom part
+ * of the filter name, which tells WordPress you want this to run
+ * on the main 'movies' custom post type edit screen. So, e.g., if
+ * your custom post type's name was 'books', then the filter name
+ * would be 'manage_edit-books_sortable_columns'.
+ *
+ * Don't forget that filters must ALWAYS return a value.
+ */
+add_filter( 'manage_edit-movies_sortable_columns', 'manage_wp_posts_be_qe_manage_sortable_columns' );
+function manage_wp_posts_be_qe_manage_sortable_columns( $sortable_columns ) {
+
+	/**
+	 * In order to make a column sortable, add the
+	 * column data to the $sortable_columns array.
+	 *
+	 * I want to make my 'Release Date' column
+	 * sortable so the array indexes (the 'release_date_column'
+	 * value between the []) need to match from
+	 * where we added the column in the
+	 * manage_wp_posts_be_qe_manage_posts_columns()
+	 * function.
+	 *
+	 * The array value (after the =) should be set to
+	 * identify the data that is going to be sorted,
+	 * i.e. what will be placed in the URL when it's sorted.
+	 * Since my release date is a custom field, I just
+	 * use the custom field name, 'release_date'.
+	 *
+	 * When the column is clicked, the URL will look like this:
+	 * http://mywebsite.com/wp-admin/edit.php?post_type=movies&orderby=release_date&order=asc
+	 */
+	$sortable_columns[ 'release_date_column' ] = 'release_date';
+	
+	// Let's also make the film rating column sortable
+	$sortable_columns[ 'film_rating_column' ] = 'film_rating';
+
+	return $sortable_columns;
 	
 }
 
@@ -117,28 +159,150 @@ function manage_wp_posts_using_bulk_quick_edit_manage_posts_columns( $columns, $
  * Note that we are wrapping our post meta in a div with an id of “release_date-” plus the post id.
  * This will come in handy when we are populating our “Quick Edit” row.
  */
-add_action( 'manage_posts_custom_column', 'manage_wp_posts_using_bulk_quick_edit_manage_posts_custom_column', 10, 2 );
-function manage_wp_posts_using_bulk_quick_edit_manage_posts_custom_column( $column_name, $post_id ) {
+add_action( 'manage_posts_custom_column', 'manage_wp_posts_be_qe_manage_posts_custom_column', 10, 2 );
+function manage_wp_posts_be_qe_manage_posts_custom_column( $column_name, $post_id ) {
 
 	switch( $column_name ) {
 	
-		case 'release_date':
+		case 'release_date_column':
 		
 			echo '<div id="release_date-' . $post_id . '">' . get_post_meta( $post_id, 'release_date', true ) . '</div>';
 			break;
 			
-		case 'coming_soon':
+		case 'coming_soon_column':
 		
 			echo '<div id="coming_soon-' . $post_id . '">' . get_post_meta( $post_id, 'coming_soon', true ) . '</div>';
 			break;
 			
-		case 'film_rating':
+		case 'film_rating_column':
 		
 			echo '<div id="film_rating-' . $post_id . '">' . get_post_meta( $post_id, 'film_rating', true ) . '</div>';
 			break;
 			
 	}
 	
+}
+
+/**
+ * Just because we've made the column sortable doesn't
+ * mean the posts will sort by our column data. That's where
+ * this next 2 filters come into play.
+ * 
+ * If your sort data is simple, i.e. alphabetically or numerically,
+ * then 'pre_get_posts' is the filter to use. This filter lets you
+ * change up the query before it's run.
+ *
+ * If your orderby data is more complicated, like our release date
+ * which is a date string stored in a custom field, then check out
+ * the 'posts_clauses' filter example used below.
+ *
+ * In the example below, when the main query is trying to order by
+ * the 'film_rating', it's a simple alphabetical sorting by a custom
+ * field so we're telling the query to set our 'meta_key' which is
+ * 'film_rating' and that we want to order by the query by the
+ * custom field's meta_value, e.g. PG, PG-13, R, etc.
+ *
+ * Check out http://codex.wordpress.org/Class_Reference/WP_Query
+ * for more info on WP Query parameters.
+ */
+add_action( 'pre_get_posts', 'manage_wp_posts_be_qe_pre_get_posts', 1 );
+function manage_wp_posts_be_qe_pre_get_posts( $query ) {
+
+	/**
+	 * We only want our code to run in the main WP query
+	 * AND if an orderby query variable is designated.
+	 */
+	if ( $query->is_main_query() && ( $orderby = $query->get( 'orderby' ) ) ) {
+	
+		switch( $orderby ) {
+		
+			// If we're ordering by 'film_rating'
+			case 'film_rating':
+			
+				// set our query's meta_key, which is used for custom fields
+				$query->set( 'meta_key', 'film_rating' );
+				
+				/**
+				 * Tell the query to order by our custom field/meta_key's
+				 * value, in this case: PG, PG-13, R, etc.
+				 *
+				 * If your meta value are numbers, change
+				 * 'meta_value' to 'meta_value_num'.
+				 */
+				$query->set( 'orderby', 'meta_value' );
+				
+				break;
+				
+		}
+	
+	}
+	
+}
+
+/**
+ * Just because we've made the column sortable doesn't
+ * mean the posts will sort by our column data. That's where
+ * the filter above, 'pre_get_posts', and the filter below,
+ * 'posts_clauses', come into play.
+ *
+ * If your sort data is simple, i.e. alphabetically or numerically,
+ * then check out the 'pre_get_posts' filter used above.
+ *
+ * If your orderby data is more complicated, like combining
+ * several values or a date string stored in a custom field,
+ * then the 'posts_clauses' filter used below is for you.
+ * The 'posts_clauses' filter allows you to manually tweak
+ * the query clauses in order to sort the posts by your
+ * custom column data.
+ *
+ * The reason more complicated sorts will not with the
+ * "out of the box" WP Query is because the WP Query orderby
+ * parameter will only order alphabetically and numerically.
+ *
+ * Usually I would recommend simply using the 'pre_get_posts'
+ * and altering the WP Query itself but because our custom
+ * field is a date, we have to manually set the query to
+ * order our posts by a date.
+ */
+add_filter( 'posts_clauses', 'manage_wp_posts_be_qe_posts_clauses', 1, 2 );
+function manage_wp_posts_be_qe_posts_clauses( $pieces, $query ) {
+	global $wpdb;
+	
+	/**
+	 * We only want our code to run in the main WP query
+	 * AND if an orderby query variable is designated.
+	 */
+	if ( $query->is_main_query() && ( $orderby = $query->get( 'orderby' ) ) ) {
+	
+		// Get the order query variable - ASC or DESC
+		$order = strtoupper( $query->get( 'order' ) );
+		
+		// Make sure the order setting qualifies. If not, set default as ASC
+		if ( ! in_array( $order, array( 'ASC', 'DESC' ) ) )
+			$order = 'ASC';
+	
+		switch( $orderby ) {
+		
+			// If we're ordering by release_date
+			case 'release_date':
+			
+				/**
+				 * We have to join the postmeta table to include
+				 * our release date in the query.
+				 */
+				$pieces[ 'join' ] .= " LEFT JOIN $wpdb->postmeta wp_rd ON wp_rd.post_id = {$wpdb->posts}.ID AND wp_rd.meta_key = 'release_date'";
+				
+				// Then tell the query to order by our date
+				$pieces[ 'orderby' ] = "STR_TO_DATE( wp_rd.meta_value,'%m/%d/%Y' ) $order, " . $pieces[ 'orderby' ];
+				
+				break;
+		
+		}
+	
+	}
+
+	return $pieces;
+
 }
 
 /**
@@ -152,9 +316,9 @@ function manage_wp_posts_using_bulk_quick_edit_manage_posts_custom_column( $colu
  * for the fieldset and 'inline-edit-col' for the div. I recommend studying the WordPress
  * bulk and quick edit HTML to see the best way to layout your custom fields.
  */
-add_action( 'bulk_edit_custom_box', 'manage_wp_posts_using_bulk_quick_edit_bulk_quick_edit_custom_box', 10, 2 );
-add_action( 'quick_edit_custom_box', 'manage_wp_posts_using_bulk_quick_edit_bulk_quick_edit_custom_box', 10, 2 );
-function manage_wp_posts_using_bulk_quick_edit_bulk_quick_edit_custom_box( $column_name, $post_type ) {
+add_action( 'bulk_edit_custom_box', 'manage_wp_posts_be_qe_bulk_quick_edit_custom_box', 10, 2 );
+add_action( 'quick_edit_custom_box', 'manage_wp_posts_be_qe_bulk_quick_edit_custom_box', 10, 2 );
+function manage_wp_posts_be_qe_bulk_quick_edit_custom_box( $column_name, $post_type ) {
 
 	switch ( $post_type ) {
 	
@@ -164,44 +328,44 @@ function manage_wp_posts_using_bulk_quick_edit_bulk_quick_edit_custom_box( $colu
 			
 				case 'release_date':
 				
-					?><fieldset class="inline-edit-col-right">
+					?><fieldset class="inline-edit-col-left">
 						<div class="inline-edit-col">
-							<div class="inline-edit-group">
-								<label class="inline-edit-status alignleft">
-									<span class="title">Release Date</span>
-									<input type="text" name="release_date" value="" />
-								</label>
-							</div>
+							<label>
+								<span class="title">Release Date</span>
+								<span class="input-text-wrap">
+									<input type="text" value="" name="release_date">
+								</span>
+							</label>
 						</div>
 					</fieldset><?php
 					break;
 					
 				case 'coming_soon':
 				
-					?><fieldset class="inline-edit-col-right">
+					?><fieldset class="inline-edit-col-left">
 						<div class="inline-edit-col">
-							<div class="inline-edit-group">
-								<label class="inline-edit-status alignleft">
-									<span class="title">Coming Soon</span>
-									<label class="inline-edit-status" style="margin-right:0.75em;">
+							<label>
+								<span class="title">Coming Soon</span>
+								<span class="input-text-wrap">
+									<label style="display:inline;">
 										<input type="radio" name="coming_soon" value="Yes" /> Yes
 									</label>&nbsp;&nbsp;
-									<label class="inline-edit-status">
+									<label style="display:inline;">
 										<input type="radio" name="coming_soon" value="No" /> No
-									</label>								
-								</label>
-							</div>
+									</label>
+								</span>
+							</label>
 						</div>
 					</fieldset><?php
 					break;
 					
 				case 'film_rating':
 				
-					?><fieldset class="inline-edit-col-right">
+					?><fieldset class="inline-edit-col-left">
 						<div class="inline-edit-col">
-							<div class="inline-edit-group">
-								<label class="inline-edit-status alignleft">
-									<span class="title">Select a film rating</span>
+							<label>
+								<span class="title">Film rating</span>
+								<span class="input-text-wrap">
 									<select name="film_rating">
 										<option value="">Rating</option>
 										<option value="G">G</option>
@@ -214,8 +378,8 @@ function manage_wp_posts_using_bulk_quick_edit_bulk_quick_edit_custom_box( $colu
 										<option value="M">M</option>
 										<option value="M/PG">M/PG</option>
 									</select>
-								</label>
-							</div>
+								</span>
+							</label>
 						</div>
 					</fieldset><?php
 					break;
@@ -248,8 +412,8 @@ function manage_wp_posts_using_bulk_quick_edit_bulk_quick_edit_custom_box( $colu
  * I have provided several scenarios for where you've placed this code. Simply uncomment the scenario
  * you're using. For all scenarios, make sure your javascript file is in the same folder as your code.
  */
-add_action( 'admin_print_scripts-edit.php', 'manage_wp_posts_using_bulk_quick_edit_enqueue_admin_scripts' );
-function manage_wp_posts_using_bulk_quick_edit_enqueue_admin_scripts() {
+add_action( 'admin_print_scripts-edit.php', 'manage_wp_posts_be_qe_enqueue_admin_scripts' );
+function manage_wp_posts_be_qe_enqueue_admin_scripts() {
 
 	// if code is in theme functions.php file
 	//wp_enqueue_script( 'manage-wp-posts-using-bulk-quick-edit', trailingslashit( get_bloginfo( 'stylesheet_directory' ) ) . 'bulk_quick_edit.js', array( 'jquery', 'inline-edit-post' ), '', true );
@@ -260,14 +424,17 @@ function manage_wp_posts_using_bulk_quick_edit_enqueue_admin_scripts() {
 }
 
 /**
- * Saving your 'Quick Edit' data is exactly like saving custom data when editing a post,
- * using the 'save_post' hook. With that said, you may have already set this up. If you're not sure,
- * and your 'Quick Edit' data is not saving, odds are you need to hook into the 'save_post' action.
+ * Saving your 'Quick Edit' data is exactly like saving custom data
+ * when editing a post, using the 'save_post' hook. With that said,
+ * you may have already set this up. If you're not sure, and your
+ * 'Quick Edit' data is not saving, odds are you need to hook into
+ * the 'save_post' action.
  *
- * The 'save_post' action passes 2 arguments: the $post_id (an integer) and the $post information (an object).
+ * The 'save_post' action passes 2 arguments: the $post_id (an integer)
+ * and the $post information (an object).
  */
-add_action( 'save_post', 'manage_wp_posts_using_bulk_quick_edit_save_post', 10, 2 );
-function manage_wp_posts_using_bulk_quick_edit_save_post( $post_id, $post ) {
+add_action( 'save_post', 'manage_wp_posts_be_qe_save_post', 10, 2 );
+function manage_wp_posts_be_qe_save_post( $post_id, $post ) {
 
 	// pointless if $_POST is empty (this happens on bulk edit)
 	if ( empty( $_POST ) )
@@ -310,8 +477,9 @@ function manage_wp_posts_using_bulk_quick_edit_save_post( $post_id, $post ) {
 }
 
 /**
- * Saving the 'Bulk Edit' data is a little trickier because we have to get JavaScript involved.
- * WordPress saves their bulk edit data via AJAX so, guess what, so do we.
+ * Saving the 'Bulk Edit' data is a little trickier because we have
+ * to get JavaScript involved. WordPress saves their bulk edit data
+ * via AJAX so, guess what, so do we.
  *
  * Your javascript will run an AJAX function to save your data.
  * This is the WordPress AJAX function that will handle and save your data.
